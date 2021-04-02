@@ -7,9 +7,12 @@ Project: A Simple Shell
 
 #include <atomic>
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <iterator>
 #include <sstream>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
 
@@ -88,7 +91,7 @@ void shell() {
         if(childProcess == 0)
             execvp(command.getCommand(), command.getArgs());
         else{
-            if(wait(nullptr) > 0) /* Child terminating */
+            if(wait(NULL) > 0) /* Child terminating */
                 command.printPrompt();
             if(string(command.getCommand()) == "exit")
                 exit(0);
