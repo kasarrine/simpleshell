@@ -15,13 +15,11 @@ Project: A Simple Shell
 #include <vector>
 
 using std::atomic;
-using std::cerr;
 using std::cin;
 using std::cout;
 using std::endl;
 using std::string;
 using std::vector;
-
 
 class Command_t{
 public:
@@ -31,7 +29,7 @@ public:
         user = getenv("USER");  // Get the current user
     }
 
-    void readCommand(){
+    void readCommand(){              // Reads in command from user
         input.clear();               // Clear string for previous line input
         getline(cin, input);  // Read in entire line
         getArgs(input, args,' '); // Process line, Delimiter for spaces
@@ -44,6 +42,8 @@ public:
     // Args used for 2nd parameter in execv, passed as a pointer to vector (acts like a char* array).
     // Can use either &args[0] or args.data()
     char** getArgs() {return &args[0];}
+    bool isInvalid() const {return getFullPath()[0] == '\0';}   // Check for invalid full path
+    bool checkForExit() const{return string(getCommand()) == "exit"; } // Check for exit entered by user
 
     // Prints initial prompt once, then
     void printPrompt() {
@@ -119,16 +119,17 @@ void shell() {
         command.printPrompt();  // Print the shell prompt
         command.readCommand();  // Read in the command
 
-        if (string(command.getCommand()) == "exit") // Exit from the shell with keyword
+        if (command.checkForExit()) // Exit from the shell with keyword
             exit(0);
 
         command.lookupPath();   // Lookup the full path of command
 
-        if(string(command.getFullPath()).empty()) { // Check for invalid command, fullPath will be empty if true
+        if(command.isInvalid()) { // Check for invalid command
             cout << "Invalid command" << endl;      // Print the invalid command
             cout << *command.getArgs() << ": command not found\n" << endl;
         }
-        else                   // Else the command is valid, create a child process
+        // Else the command is valid, create a child process
+        else
             childProcess = fork();
 
         if (childProcess == 0) {                             // Child process executes
