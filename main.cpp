@@ -15,6 +15,7 @@ Project: A Simple Shell
 #include <vector>
 
 using std::atomic;
+using std::cerr;
 using std::cin;
 using std::cout;
 using std::endl;
@@ -36,11 +37,13 @@ public:
         getArgs(input, args,' '); // Process line, Delimiter for spaces
     }
 
-    void parsePath(){getArgs(getenv("PATH"), paths, ':');} // Delimiter for :
+    void parsePath(){ getArgs(getenv("PATH"), paths, ':'); } // Delimiter for :
     const string& getUser() {return user;}    // Current user logged in
     char *getCommand() const {return args[0];}  // Command used for 1st parameter in execv
     char *getFullPath() const {return const_cast<char *>(fullPath.c_str());}
-    char** getArgs() {return &args[0];} // Args used for 2nd parameter in execvp
+    // Args used for 2nd parameter in execv, passed as a pointer to vector (acts like a char* array).
+    // Can use either &args[0] or args.data()
+    char** getArgs() {return &args[0];}
 
     // Prints initial prompt once, then
     void printPrompt() {
@@ -60,26 +63,22 @@ public:
     void lookupPath() {
         fullPath.clear();                  // Clear previous fullPath
         string temp;                       // Used to build test fullPath
-        string firstChar = args.at(0);  // Build test string for first character
 
-        if(firstChar[0] == '/') {              // Check for '/' indicating a full path
-            for(char* item: args) {            // Build out test fullPath
-                if (item != nullptr) {         // Check for null terminator
-                    string tempItem = string(item);
+        if(args[0][0] == '/') {            // Check for '/' as the first character indicating a full path
+            for(char* arg: args) {         // Build out test fullPath
+                if (arg != nullptr) {      // Check for null terminator
                     // If access is good, then the command exists at the fullPath
-                    if (access(tempItem.c_str(), F_OK) == 0) {
-                        fullPath = tempItem;
+                    if (access(arg, F_OK) == 0) {
+                        fullPath = arg;
                         return;
                     }
                 }
             }
         }
-        else
-            temp.clear();                       // Else clear the temp fullPath
 
-        for(char* item: paths) {               // If here, need to search for the command in path directories
-            if (item != nullptr) {
-                temp = string(item) + "/" + args.at(0); // Build out temp fullPath
+        for(char* path: paths) {               // If here, need to search for the command in path directories
+            if (path != nullptr) {
+                temp = string(path) + "/" + args.at(0); // Build out temp fullPath
 
                 // If temp fullPath access is ok, return the fullPath and return from function
                 if (access(temp.c_str(), F_OK) == 0) {
@@ -92,29 +91,28 @@ public:
 
 private:
     string fullPath, user, input;
-    vector<char*> args;
-    vector<char*> paths;
+    vector<char*> args, paths;
     atomic<int> counter;
 
     // Used to parse both the path environment and commands from the terminal
     static void getArgs(const string& line, vector<char*>& vec, const char& delimiter)
     {
-        vec.clear(); // Clear the vector of previous pointers/data
+        vec.clear();             // Clear the vector of previous pointers/data
         char* path = strdup(line.c_str());
         while (char* all = strchr(path, delimiter))
         {
-            *all = 0; // Reset pointer
+            *all = 0;            // Reset pointer
             vec.push_back(path); // Add each path
             for (path = all + 1; *path == ' '; ++path);
         }
-        vec.push_back(path); // Add the last path
+        vec.push_back(path);    // Add the last path
         vec.push_back(nullptr); // Add null pointer to the end
     }
 };
 
 // Function for shell
 void shell() {
-    Command_t command; // Also parses user environment
+    Command_t command;          // Also parses user environment
     pid_t childProcess;
 
     while(true) {
@@ -126,17 +124,19 @@ void shell() {
 
         command.lookupPath();   // Lookup the full path of command
 
-        if(string(command.getFullPath()).empty())  // Check for invalid command
-            cout << "Invalid command.\n" << endl;
-        else                                       // Else the command is valid, create a child process
+        if(string(command.getFullPath()).empty()) { // Check for invalid command, fullPath will be empty if true
+            cout << "Invalid command" << endl;      // Print the invalid command
+            cout << *command.getArgs() << ": command not found\n" << endl;
+        }
+        else                   // Else the command is valid, create a child process
             childProcess = fork();
 
-        if (childProcess == 0) {
+        if (childProcess == 0) {                             // Child process executes
             execv(command.getFullPath(), command.getArgs()); // Execute the command
             exit(0);
         }
         else
-            wait(nullptr);
+            wait(nullptr); // Parent process waits for child to terminate
     }
 }
 
