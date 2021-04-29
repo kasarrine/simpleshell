@@ -9,7 +9,6 @@ Project: A Simple Shell
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
-#include <iterator>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
@@ -88,6 +87,20 @@ public:
             }
         }
     }
+    void changeDir(){
+        // For cd only, "cd" + nullptr, change to home directory
+        if(args.size() == 2)
+            chdir(getenv("HOME"));
+
+        // Otherwise, build the directory from the string input
+        else {
+            string dir = input.substr(3);
+            if (access(dir.c_str(), F_OK) == 0) // Check if directory exists/is accessible
+                chdir(dir.c_str());
+            else
+                cout << dir << ": No such file or directory\n" << endl;
+        }
+    }
 
 private:
     string fullPath, user, input;
@@ -128,8 +141,9 @@ void shell() {
             cout << "Invalid command" << endl;      // Print the invalid command
             cout << *command.getArgs() << ": command not found\n" << endl;
         }
-        // Else the command is valid, create a child process
-        else
+        else if(string(command.getCommand()) == "cd") // cd is built-in (not executable) have to implement
+            command.changeDir();
+        else       // Else the command is valid, create a child process
             childProcess = fork();
 
         if (childProcess == 0) {                             // Child process executes
